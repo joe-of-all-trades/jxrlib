@@ -430,6 +430,45 @@ Cleanup:
     return err;
 }
 
+ERR PKCodecFactory_CreateDecoderFromMemory(const char* file_name, unsigned long long rd_position, long rd_size, PKImageDecode** ppDecoder)
+{
+    ERR err = WMP_errSuccess;
+
+    char *pExt = ".jxr";
+    char *rdbuffer = NULL;
+    FILE *inFile;
+    const PKIID* pIID = NULL;
+
+    struct WMPStream* pStream = NULL;
+    PKImageDecode* pDecoder = NULL;
+
+    inFile = fopen64(file_name, "rb");
+    rdbuffer = malloc(rd_size);
+    fseeko64(inFile, rd_position, SEEK_SET);
+    if (fread(rdbuffer, 1, rd_size, inFile) != rd_size){
+        printf("read failed\n");
+        return 0;
+    }
+    fclose(inFile);
+
+    // get decode PKIID
+    Call(GetImageDecodeIID(pExt, &pIID));
+
+    // create stream
+    Call(CreateWS_Memory(&pStream, rdbuffer, rd_size));
+
+    // Create decoder
+    Call(PKCodecFactory_CreateCodec(pIID, (void **) ppDecoder));
+    pDecoder = *ppDecoder;
+
+    // attach stream to decoder
+    Call(pDecoder->Initialize(pDecoder, pStream));
+    pDecoder->fStreamOwner = !0;
+
+Cleanup:
+    return err;
+}
+
 ERR PKCodecFactory_CreateFormatConverter(PKFormatConverter** ppFConverter)
 {
     ERR err = WMP_errSuccess;
@@ -474,6 +513,7 @@ ERR PKCreateCodecFactory(PKCodecFactory** ppCFactory, U32 uVersion)
 
     pCFactory->CreateCodec = PKCodecFactory_CreateCodec;
     pCFactory->CreateDecoderFromFile = PKCodecFactory_CreateDecoderFromFile;
+	pCFactory->CreateDecoderFromMemory = PKCodecFactory_CreateDecoderFromMemory;
     pCFactory->CreateFormatConverter = PKCodecFactory_CreateFormatConverter;
     pCFactory->Release = PKCreateCodecFactory_Release;
 
